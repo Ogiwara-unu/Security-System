@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de seguridad</title>
+    <meta name="description" content="Página web del sistema de seguridad">
+    <meta name="keywords" content="sistema de seguridad">
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/datatables/1.10.21/css/dataTables.bootstrap.min.css" integrity="sha512-BMbq2It2D3J17/C7aRklzOODG1IQ3+MHw3ifzBHMBwGO/0yUqYmsStgBjI0z5EYlaDEFnvYV7gNYdD3vFLRKsA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link href="../assets/css/style.css" rel="stylesheet" type="text/css">
+</head>
+
+<body>
+
+    <h1>Sistema de Seguridad :3</h1>
+    <div>
+        <p>Temperatura: <span id="temperatura">Cargando...</span> °C</p>
+        <p>Humedad: <span id="humedad">Cargando...</span> %</p>
+        <p>Estado de Alarma: <span id="estado-alarma">Cargando...</span></p> <!-- Nueva línea para el estado de la alarma -->
+    </div>
+
+    <footer></footer>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/datatables/1.10.21/js/jquery.dataTables.min.js" integrity="sha512-BkpSL20WETFylMrcirBahHfSnY++H2O1W+UnEEO4yNIl+jI2+zowyoGJpbtk6bx97fBXf++WJHSSK2MV4ghPcg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js" integrity="sha512-v2CJ7UaYy4JwqLDIrZUI/4hqeoQieOmAZNXBeQyjo21dadnwR+8ZaIJVT8EE2iyI61OV8e6M8PP2/4hpQINQ/g==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+    <script>
+        async function fetchSensorData() {
+            try {
+                const response = await fetch('http://192.168.0.10/datos');
+                if (!response.ok) throw new Error('Error en la respuesta');
+                
+                const data = await response.json();
+                document.getElementById('temperatura').textContent = data.temperatura;
+                document.getElementById('humedad').textContent = data.humedad;
+            } catch (error) {
+                console.error('Error al obtener los datos del sensor:', error);
+            }
+        }
+
+        async function fetchAlarmaEstado() {
+            try {
+                const response = await fetch('http://192.168.0.10/alarma');
+                if (!response.ok) throw new Error('Error en la respuesta');
+
+                const data = await response.json();
+                document.getElementById('estado-alarma').textContent = data.estado;
+            } catch (error) {
+                console.error('Error al obtener el estado de la alarma:', error);
+            }
+        }
+
+        // Llamadas iniciales y actualizaciones periódicas cada 5 segundos
+        fetchSensorData();
+        fetchAlarmaEstado();
+        setInterval(() => {
+            fetchSensorData();
+            fetchAlarmaEstado();
+        }, 5000);
+    </script>
+</body>
+</html>
