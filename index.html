@@ -3,23 +3,42 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistema de seguridad</title>
+    <title>Sistema de Seguridad</title>
     <meta name="description" content="Página web del sistema de seguridad">
     <meta name="keywords" content="sistema de seguridad">
-
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/datatables/1.10.21/css/dataTables.bootstrap.min.css" integrity="sha512-BMbq2It2D3J17/C7aRklzOODG1IQ3+MHw3ifzBHMBwGO/0yUqYmsStgBjI0z5EYlaDEFnvYV7gNYdD3vFLRKsA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <link href="../assets/css/style.css" rel="stylesheet" type="text/css">
 </head>
-
 <body>
 
-    <h1>Sistema de Seguridad :3</h1>
+    <h1>Sistema de Seguridad</h1>
     <div>
         <p>Temperatura: <span id="temperatura">Cargando...</span> °C</p>
         <p>Humedad: <span id="humedad">Cargando...</span> %</p>
-        <p>Estado de Alarma: <span id="estado-alarma">Cargando...</span></p> <!-- Nueva línea para el estado de la alarma -->
+        <p>Estado de Alarma: <span id="estado-alarma">Cargando...</span></p>
+        <p>Estado de Infrarrojo: <span id="estado-infrarojo">Cargando...</span></p>
+        <p>Estado del Sensor de Temperatura: <span id="estado-temperatura">Cargando...</span></p>
+        <button id="btnInfrarrojo" onclick="toggleInfrarrojo()">Apagar Infrarrojo</button>
+        <button id="btnTemperatura" onclick="toggleTemperatura()">Apagar Sensor de Temperatura</button>
+        <button id="btnAlarma" onclick="toggleAlarma()">Apagar Alarma</button>
+        <button id="btnEncenderSistema" onclick="toggleEncenderSistema()">Encender Sistema</button>
+        <button id="btnApagarSistema" onclick="toggleApagarSistema()">Apagar Sistema</button>
     </div>
+
+    <h2>Registro de Temperatura y Humedad</h2>
+    <table id="data-table" border="1">
+        <thead>
+            <tr>
+                <th>Fecha y Hora</th>
+                <th>Temperatura (°C)</th>
+                <th>Humedad (%)</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Los datos se insertarán aquí -->
+        </tbody>
+    </table>
 
     <footer></footer>
 
@@ -27,38 +46,149 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js" integrity="sha512-v2CJ7UaYy4JwqLDIrZUI/4hqeoQieOmAZNXBeQyjo21dadnwR+8ZaIJVT8EE2iyI61OV8e6M8PP2/4hpQINQ/g==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 
     <script>
-        async function fetchSensorData() {
+        let lastTemperature = null;
+
+        async function fetchAllEstados() {
             try {
-                const response = await fetch('http://192.168.0.10/datos');
+                const response = await fetch('http://192.168.0.4/estados'); // Endpoint que devuelve todos los estados
                 if (!response.ok) throw new Error('Error en la respuesta');
-                
+
                 const data = await response.json();
                 document.getElementById('temperatura').textContent = data.temperatura;
                 document.getElementById('humedad').textContent = data.humedad;
+                document.getElementById('estado-alarma').textContent = data.estadoAlarma;
+                document.getElementById('estado-infrarojo').textContent = data.estadoInfrarrojo;
+                document.getElementById('estado-temperatura').textContent = data.estadoTemperatura;
+
+                // Guardar en localStorage si la temperatura es al menos 1 grado mayor
+                if (lastTemperature === null || data.temperatura > lastTemperature + 1) {
+                    lastTemperature = data.temperatura;
+                    saveData(data.temperatura, data.humedad);
+                }
+
+                displayData();
+
             } catch (error) {
-                console.error('Error al obtener los datos del sensor:', error);
+                console.error('Error al obtener los datos del dispositivo:', error);
             }
         }
 
-        async function fetchAlarmaEstado() {
+        function saveData(temperatura, humedad) {
+            const now = new Date();
+            const timestamp = now.toLocaleString();
+            const record = { timestamp, temperatura, humedad };
+
+            const records = JSON.parse(sessionStorage.getItem('temperatureHumidityRecords')) || [];
+
+            // Verificar si el registro ya existe
+            const isDuplicate = records.some(r => 
+                r.temperatura === temperatura && 
+                r.humedad === humedad && 
+                r.timestamp === timestamp
+            );
+
+            // Evitar duplicados comparando con el último registro
+            if (records.length > 0) {
+                const lastRecord = records[records.length - 1];
+                if (lastRecord.temperatura === temperatura && lastRecord.humedad === humedad) {
+                    return; // No se guarda el registro si es igual al último
+                }
+            }
+
+            if (!isDuplicate) {
+                records.push(record);
+                sessionStorage.setItem('temperatureHumidityRecords', JSON.stringify(records));
+                displayData(); 
+            }
+        }
+
+        function displayData() {
+            const records = JSON.parse(sessionStorage.getItem('temperatureHumidityRecords')) || [];
+            const tableBody = document.querySelector('#data-table tbody');
+            tableBody.innerHTML = ''; // Limpiar la tabla
+
+            records.forEach(record => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${record.timestamp}</td>
+                    <td>${record.temperatura}</td>
+                    <td>${record.humedad}</td>
+                `;
+                tableBody.appendChild(row);
+            });
+        }
+
+        async function toggleInfrarrojo() {
             try {
-                const response = await fetch('http://192.168.0.10/alarma');
+                const response = await fetch('http://192.168.0.4/toggleInfrarrojo');
                 if (!response.ok) throw new Error('Error en la respuesta');
 
                 const data = await response.json();
-                document.getElementById('estado-alarma').textContent = data.estado;
+                const btnInfrarrojo = document.getElementById('btnInfrarrojo');
+                btnInfrarrojo.textContent = data.estado === "Encendido" ? "Apagar Infrarrojo" : "Encender Infrarrojo";
             } catch (error) {
-                console.error('Error al obtener el estado de la alarma:', error);
+                console.error('Error al cambiar el estado del infrarrojo:', error);
             }
         }
 
-        // Llamadas iniciales y actualizaciones periódicas cada 5 segundos
-        fetchSensorData();
-        fetchAlarmaEstado();
-        setInterval(() => {
-            fetchSensorData();
-            fetchAlarmaEstado();
-        }, 2000);
+        async function toggleTemperatura() {
+            try {
+                const response = await fetch('http://192.168.0.4/toggleTemperatura');
+                if (!response.ok) throw new Error('Error en la respuesta');
+
+                const data = await response.json();
+                const btnTemperatura = document.getElementById('btnTemperatura');
+                btnTemperatura.textContent = data.estado === "Encendido" ? "Apagar Sensor de Temperatura" : "Encender Sensor de Temperatura";
+            } catch (error) {
+                console.error('Error al cambiar el estado del sensor de temperatura:', error);
+            }
+        }
+
+        async function toggleAlarma() {
+            try {
+                const response = await fetch('http://192.168.0.4/toggleAlarma');
+                if (!response.ok) throw new Error('Error en la respuesta');
+
+                const data = await response.json();
+                const btnAlarma = document.getElementById('btnAlarma');
+                btnAlarma.textContent = data.estado === "Encendido" ? "Apagar Alarma" : "Encender Alarma";
+            } catch (error) {
+                console.error('Error al cambiar el estado de la alarma:', error);
+            }
+        }
+
+        async function toggleEncenderSistema() {
+            try {
+                const response = await fetch('http://192.168.0.4/encender');
+                if (!response.ok) throw new Error('Error en la respuesta');
+
+                const data = await response.json();
+                alert(data.estado);
+                
+            } catch (error) {
+                console.error('Error al iniciar el sistema:', error);
+            }
+        }
+
+        async function toggleApagarSistema() {
+            try {
+                const response = await fetch('http://192.168.0.4/apagar');
+                if (!response.ok) throw new Error('Error en la respuesta');
+
+                const data = await response.json();
+                alert(data.estado);
+            } catch (error) {
+                console.error('Error al apagar el sistema:', error);
+            }
+        }
+
+        // Llamada inicial y actualización periódica cada 2 segundos
+        fetchAllEstados();
+        setInterval(fetchAllEstados, 2000);
+        window.onload = function() {
+        displayData(); // Llamar a displayData al cargar la página
+        fetchAllEstados(); // Llamada inicial
+        };
     </script>
 </body>
 </html>
